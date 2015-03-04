@@ -1,4 +1,6 @@
+<link rel="import" href="../bower_components/polymer/polymer.html">
 <link rel="import" href="../bower_components/core-style/core-style.html">
+<link rel="import" href="../bower_components/paper-icon-button/paper-icon-button.html">
 
 <link rel="import" href="./partial-base.html">
 
@@ -13,7 +15,7 @@
 
     <span header-buttons>
       <paper-icon-button icon="refresh" class="{{isFetching && 'ha-spin'}}"
-        on-click="{{handleRefreshClick}}"></paper-icon-button>
+        on-click="{{handleRefreshClick}}" hidden?="{{isStreaming}}"></paper-icon-button>
     </span>
 
     <state-cards states="{{states}}">
@@ -28,32 +30,34 @@
   </partial-base>
 </template>
 <script>
-  Polymer({
+  var storeListenerMixIn = window.hass.storeListenerMixIn;
+  var syncActions = window.hass.syncActions;
+  var stateStore = window.hass.stateStore;
+
+  Polymer(Polymer.mixin({
     headerTitle: "States",
     states: [],
     isFetching: false,
+    isStreaming: false,
 
-    ready: function() {
-      this.stateStoreChanged = this.stateStoreChanged.bind(this);
-      window.hass.stateStore.addChangeListener(this.stateStoreChanged);
-
-      this.syncStoreChanged = this.syncStoreChanged.bind(this);
-      window.hass.syncStore.addChangeListener(this.syncStoreChanged);
-
-      this.refreshStates();
+    attached: function() {
+      this.listenToStores(true);
     },
 
     detached: function() {
-      window.hass.stateStore.removeChangeListener(this.stateStoreChanged);
-      window.hass.syncStore.removeChangeListener(this.syncStoreChanged);
+      this.stopListeningToStores();
     },
 
     stateStoreChanged: function() {
       this.refreshStates();
     },
 
-    syncStoreChanged: function() {
-      this.isFetching = window.hass.syncStore.isFetching();
+    syncStoreChanged: function(syncStore) {
+      this.isFetching = syncStore.isFetching();
+    },
+
+    streamStoreChanged: function(streamStore) {
+      this.isStreaming = streamStore.isStreaming();
     },
 
     filterChanged: function() {
@@ -72,19 +76,19 @@
 
     refreshStates: function() {
       if (this.filter == 'group') {
-        this.states = _.filter(window.hass.stateStore.all(), function(state) {
+        this.states = _.filter(stateStore.all(), function(state) {
           return state.domain === 'group';
         });
       } else {
-        this.states = _.filter(window.hass.stateStore.all(), function(state) {
+        this.states = _.filter(stateStore.all(), function(state) {
           return state.domain !== 'group';
         });
       }
     },
 
     handleRefreshClick: function() {
-      window.hass.syncActions.sync();
+      syncActions.fetchAll();
     },
-  });
+  }, storeListenerMixIn));
 </script>
 </polymer>

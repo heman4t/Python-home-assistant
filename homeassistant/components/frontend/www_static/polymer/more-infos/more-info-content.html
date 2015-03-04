@@ -5,6 +5,7 @@
 <link rel="import" href="more-info-group.html">
 <link rel="import" href="more-info-sun.html">
 <link rel="import" href="more-info-configurator.html">
+<link rel="import" href="more-info-thermostat.html">
 
 <polymer-element name="more-info-content" attributes="stateObj">
 <template>
@@ -13,7 +14,6 @@
       display: block;
     }
   </style>
-
   <div id='moreInfoContainer' class='{{classNames}}'></div>
 </template>
 <script>
@@ -51,10 +51,11 @@ Polymer({
   },
 
   stateAttributesChanged: function(oldVal, newVal) {
+    if (!newVal) return;
+
     this.classNames = Object.keys(newVal).map(
       function(key) { return "has-" + key; }).join(' ');
   },
-
 });
 </script>
 </polymer-element>

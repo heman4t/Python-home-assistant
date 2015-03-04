@@ -28,6 +28,8 @@ EVENT_TIME_CHANGED = "time_changed"
 EVENT_CALL_SERVICE = "call_service"
 EVENT_SERVICE_EXECUTED = "service_executed"
 EVENT_PLATFORM_DISCOVERED = "platform_discovered"
+EVENT_COMPONENT_LOADED = "component_loaded"
+EVENT_SERVICE_REGISTERED = "service_registered"
 
 # #### STATES ####
 STATE_ON = 'on'
@@ -63,13 +65,16 @@ ATTR_UNIT_OF_MEASUREMENT = "unit_of_measurement"
 
 # Temperature attribute
 ATTR_TEMPERATURE = "temperature"
-
-# #### MISC ####
 TEMP_CELCIUS = "°C"
 TEMP_FAHRENHEIT = "°F"
 
 # Contains the information that is discovered
 ATTR_DISCOVERED = "discovered"
+
+# Location of the device/sensor
+ATTR_LOCATION = "location"
+
+ATTR_BATTERY_LEVEL = "battery_level"
 
 # #### SERVICES ####
 SERVICE_HOMEASSISTANT_STOP = "stop"
@@ -89,9 +94,9 @@ SERVICE_MEDIA_PREV_TRACK = "media_prev_track"
 # #### API / REMOTE ####
 SERVER_PORT = 8123
 
-AUTH_HEADER = "X-HA-access"
-
+URL_ROOT = "/"
 URL_API = "/api/"
+URL_API_STREAM = "/api/stream"
 URL_API_STATES = "/api/states"
 URL_API_STATES_ENTITY = "/api/states/{}"
 URL_API_EVENTS = "/api/events"
@@ -100,3 +105,23 @@ URL_API_SERVICES = "/api/services"
 URL_API_SERVICES_SERVICE = "/api/services/{}/{}"
 URL_API_EVENT_FORWARD = "/api/event_forwarding"
 URL_API_COMPONENTS = "/api/components"
+
+HTTP_OK = 200
+HTTP_CREATED = 201
+HTTP_MOVED_PERMANENTLY = 301
+HTTP_BAD_REQUEST = 400
+HTTP_UNAUTHORIZED = 401
+HTTP_NOT_FOUND = 404
+HTTP_METHOD_NOT_ALLOWED = 405
+HTTP_UNPROCESSABLE_ENTITY = 422
+
+HTTP_HEADER_HA_AUTH = "X-HA-access"
+HTTP_HEADER_ACCEPT_ENCODING = "Accept-Encoding"
+HTTP_HEADER_CONTENT_TYPE = "Content-type"
+HTTP_HEADER_CONTENT_ENCODING = "Content-Encoding"
+HTTP_HEADER_VARY = "Vary"
+HTTP_HEADER_CONTENT_LENGTH = "Content-Length"
+HTTP_HEADER_CACHE_CONTROL = "Cache-Control"
+HTTP_HEADER_EXPIRES = "Expires"
+
+CONTENT_TYPE_JSON = "application/json"

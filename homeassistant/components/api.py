@@ -6,26 +6,25 @@ Provides a Rest API for Home Assistant.
 """
 import re
 import logging
+import threading
+import json
 
 import homeassistant as ha
 from homeassistant.helpers import TrackStates
 import homeassistant.remote as rem
 from homeassistant.const import (
-    URL_API, URL_API_STATES, URL_API_EVENTS, URL_API_SERVICES,
-    URL_API_EVENT_FORWARD, URL_API_STATES_ENTITY, URL_API_COMPONENTS)
-
-HTTP_OK = 200
-HTTP_CREATED = 201
-HTTP_MOVED_PERMANENTLY = 301
-HTTP_BAD_REQUEST = 400
-HTTP_UNAUTHORIZED = 401
-HTTP_NOT_FOUND = 404
-HTTP_METHOD_NOT_ALLOWED = 405
-HTTP_UNPROCESSABLE_ENTITY = 422
+    URL_API, URL_API_STATES, URL_API_EVENTS, URL_API_SERVICES, URL_API_STREAM,
+    URL_API_EVENT_FORWARD, URL_API_STATES_ENTITY, URL_API_COMPONENTS,
+    EVENT_TIME_CHANGED, EVENT_HOMEASSISTANT_STOP, MATCH_ALL,
+    HTTP_OK, HTTP_CREATED, HTTP_BAD_REQUEST, HTTP_NOT_FOUND,
+    HTTP_UNPROCESSABLE_ENTITY)
 
 
 DOMAIN = 'api'
 DEPENDENCIES = ['http']
+
+STREAM_PING_PAYLOAD = "ping"
+STREAM_PING_INTERVAL = 50  # seconds
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -39,6 +38,9 @@ def setup(hass, config):
 
     # /api - for validation purposes
     hass.http.register_path('GET', URL_API, _handle_get_api)
+
+    # /api/stream
+    hass.http.register_path('GET', URL_API_STREAM, _handle_get_api_stream)
 
     # /states
     hass.http.register_path('GET', URL_API_STATES, _handle_get_api_states)
@@ -83,6 +85,59 @@ def setup(hass, config):
 def _handle_get_api(handler, path_match, data):
     """ Renders the debug interface. """
     handler.write_json_message("API running.")
+
+
+def _handle_get_api_stream(handler, path_match, data):
+    """ Provide a streaming interface for the event bus. """
+    gracefully_closed = False
+    hass = handler.server.hass
+    wfile = handler.wfile
+    write_lock = threading.Lock()
+    block = threading.Event()
+
+    def write_message(payload):
+        """ Writes a message to the output. """
+        with write_lock:
+            msg = "data: {}\n\n".format(payload)
+
+            try:
+                wfile.write(msg.encode("UTF-8"))
+                wfile.flush()
+            except IOError:
+                block.set()
+
+    def forward_events(event):
+        """ Forwards events to the open request. """
+        nonlocal gracefully_closed
+
+        if block.is_set() or event.event_type == EVENT_TIME_CHANGED:
+            return
+        elif event.event_type == EVENT_HOMEASSISTANT_STOP:
+            gracefully_closed = True
+            block.set()
+            return
+
+        write_message(json.dumps(event, cls=rem.JSONEncoder))
+
+    handler.send_response(HTTP_OK)
+    handler.send_header('Content-type', 'text/event-stream')
+    handler.end_headers()
+
+    hass.bus.listen(MATCH_ALL, forward_events)
+
+    while True:
+        write_message(STREAM_PING_PAYLOAD)
+
+        block.wait(STREAM_PING_INTERVAL)
+
+        if block.is_set():
+            break
+
+    if not gracefully_closed:
+        _LOGGER.info("Found broken event stream to %s, cleaning up",
+                     handler.client_address[0])
+
+    hass.bus.remove_listener(MATCH_ALL, forward_events)
 
 
 def _handle_get_api_states(handler, path_match, data):

@@ -58,7 +58,10 @@
   </template>
 
   <script>
-  Polymer({
+  var storeListenerMixIn = window.hass.storeListenerMixIn;
+  var uiActions = window.hass.uiActions;
+
+  Polymer(Polymer.mixin({
     MSG_VALIDATING: "Validating password…",
     MSG_LOADING_DATA: "Loading data…",
 
@@ -69,30 +72,21 @@
 
     spinnerMessage: "",
 
-    ready: function() {
-      this.authStore = window.hass.authStore;
-
-      this.authChangeListener = this.authChangeListener.bind(this);
-
-      this.authStore.addChangeListener(this.authChangeListener);
-
-      this.authChangeListener();
-    },
-
     attached: function() {
       this.focusPassword();
+      this.listenToStores(true);
     },
 
     detached: function() {
-      this.authStore.removeChangeListener(this.authChangeListener);
+      this.stopListeningToStores();
     },
 
-    authChangeListener: function() {
-      this.isValidating = this.authStore.isValidating();
-      this.isLoggedIn = this.authStore.isLoggedIn();
+    authStoreChanged: function(authStore) {
+      this.isValidating = authStore.isValidating();
+      this.isLoggedIn = authStore.isLoggedIn();
       this.spinnerMessage = this.isValidating ? this.MSG_VALIDATING : this.MSG_LOADING_DATA;
 
-      if (this.authStore.wasLastAttemptInvalid()) {
+      if (authStore.wasLastAttemptInvalid()) {
         this.$.passwordDecorator.error = this.authStore.getLastAttemptMessage();
         this.$.passwordDecorator.isInvalid = true;
       }
@@ -120,10 +114,9 @@
     validatePassword: function() {
       this.$.hideKeyboardOnFocus.focus();
 
-      window.hass.authActions.validate(this.authToken);
+      uiActions.validateAuth(this.authToken);
     },
-
-  });
+  }, storeListenerMixIn));
   </script>
 </polymer-element>
 

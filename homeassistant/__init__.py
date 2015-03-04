@@ -19,7 +19,7 @@ from homeassistant.const import (
     EVENT_HOMEASSISTANT_START, EVENT_HOMEASSISTANT_STOP,
     SERVICE_HOMEASSISTANT_STOP, EVENT_TIME_CHANGED, EVENT_STATE_CHANGED,
     EVENT_CALL_SERVICE, ATTR_NOW, ATTR_DOMAIN, ATTR_SERVICE, MATCH_ALL,
-    EVENT_SERVICE_EXECUTED, ATTR_SERVICE_CALL_ID)
+    EVENT_SERVICE_EXECUTED, ATTR_SERVICE_CALL_ID, EVENT_SERVICE_REGISTERED)
 import homeassistant.util as util
 
 DOMAIN = "homeassistant"
@@ -683,6 +683,10 @@ class ServiceRegistry(object):
             else:
                 self._services[domain] = {service: service_func}
 
+            self._bus.fire(
+                EVENT_SERVICE_REGISTERED,
+                {ATTR_DOMAIN: domain, ATTR_SERVICE: service})
+
     def call(self, domain, service, service_data=None, blocking=False):
         """
         Calls specified service.
@@ -776,7 +780,7 @@ class Timer(threading.Thread):
         self.daemon = True
         self.hass = hass
         self.interval = interval or TIMER_INTERVAL
-        self._stop = threading.Event()
+        self._stop_event = threading.Event()
 
         # We want to be able to fire every time a minute starts (seconds=0).
         # We want this so other modules can use that to make sure they fire
@@ -790,7 +794,7 @@ class Timer(threading.Thread):
         """ Start the timer. """
 
         self.hass.bus.listen_once(EVENT_HOMEASSISTANT_STOP,
-                                  lambda event: self._stop.set())
+                                  lambda event: self._stop_event.set())
 
         _LOGGER.info("Timer:starting")
 
@@ -799,7 +803,7 @@ class Timer(threading.Thread):
         calc_now = dt.datetime.now
         interval = self.interval
 
-        while not self._stop.isSet():
+        while not self._stop_event.isSet():
             now = calc_now()
 
             # First check checks if we are not on a second matching the

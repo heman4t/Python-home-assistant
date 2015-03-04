@@ -36,6 +36,9 @@ TIME_DEVICE_NOT_FOUND = timedelta(minutes=3)
 # Filename to save known devices to
 KNOWN_DEVICES_FILE = "known_devices.csv"
 
+CONF_SECONDS = "interval_seconds"
+
+DEFAULT_CONF_SECONDS = 12
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -51,8 +54,8 @@ def setup(hass, config):
     """ Sets up the device tracker. """
 
     # CONF_TYPE is deprecated for CONF_PLATOFRM. We keep supporting it for now.
-    if not (validate_config(config, {DOMAIN: [CONF_PLATFORM]}, _LOGGER)
-            or validate_config(config, {DOMAIN: [CONF_TYPE]}, _LOGGER)):
+    if not (validate_config(config, {DOMAIN: [CONF_PLATFORM]}, _LOGGER) or
+            validate_config(config, {DOMAIN: [CONF_TYPE]}, _LOGGER)):
 
         return False
 
@@ -81,7 +84,10 @@ def setup(hass, config):
 
         return False
 
-    tracker = DeviceTracker(hass, device_scanner)
+    seconds = util.convert(config[DOMAIN].get(CONF_SECONDS), int,
+                           DEFAULT_CONF_SECONDS)
+
+    tracker = DeviceTracker(hass, device_scanner, seconds)
 
     # We only succeeded if we got to parse the known devices file
     return not tracker.invalid_known_devices_file
@@ -90,7 +96,7 @@ def setup(hass, config):
 class DeviceTracker(object):
     """ Class that tracks which devices are home and which are not. """
 
-    def __init__(self, hass, device_scanner):
+    def __init__(self, hass, device_scanner, seconds):
         self.hass = hass
 
         self.device_scanner = device_scanner
@@ -126,8 +132,10 @@ class DeviceTracker(object):
         if self.invalid_known_devices_file:
             return
 
-        hass.track_time_change(
-            update_device_state, second=range(0, 60, 12))
+        seconds = range(0, 60, seconds)
+
+        _LOGGER.info("Device tracker interval second=%s", seconds)
+        hass.track_time_change(update_device_state, second=seconds)
 
         hass.services.register(DOMAIN,
                                SERVICE_DEVICE_TRACKER_RELOAD,
@@ -161,7 +169,8 @@ class DeviceTracker(object):
         """ Update device states based on the found devices. """
         self.lock.acquire()
 
-        found_devices = set(self.device_scanner.scan_devices())
+        found_devices = set(dev.upper() for dev in
+                            self.device_scanner.scan_devices())
 
         for device in self.tracked:
             is_home = device in found_devices
@@ -200,8 +209,8 @@ class DeviceTracker(object):
                         for device in new_devices:
                             # See if the device scanner knows the name
                             # else defaults to unknown device
-                            name = (self.device_scanner.get_device_name(device)
-                                    or "unknown_device")
+                            dname = self.device_scanner.get_device_name(device)
+                            name = dname or "unknown device"
 
                             writer.writerow((device, name, 0, ""))
 

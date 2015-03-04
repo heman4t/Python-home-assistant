@@ -7,7 +7,7 @@ from urllib.parse import urlparse
 from homeassistant.loader import get_component
 import homeassistant.util as util
 from homeassistant.helpers import ToggleDevice
-from homeassistant.const import ATTR_FRIENDLY_NAME, CONF_HOST
+from homeassistant.const import CONF_HOST
 from homeassistant.components.light import (
     ATTR_BRIGHTNESS, ATTR_XY_COLOR, ATTR_TRANSITION,
     ATTR_FLASH, FLASH_LONG, FLASH_SHORT)
@@ -153,13 +153,12 @@ class HueLight(ToggleDevice):
     @property
     def state_attributes(self):
         """ Returns optional state attributes. """
-        attr = {
-            ATTR_FRIENDLY_NAME: self.name
-        }
+        attr = {}
 
         if self.is_on:
             attr[ATTR_BRIGHTNESS] = self.info['state']['bri']
-            attr[ATTR_XY_COLOR] = self.info['state']['xy']
+            if 'xy' in self.info['state']:
+                attr[ATTR_XY_COLOR] = self.info['state']['xy']
 
         return attr
 

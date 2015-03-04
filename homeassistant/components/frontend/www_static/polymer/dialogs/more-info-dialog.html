@@ -1,62 +1,80 @@
 <link rel="import" href="../bower_components/polymer/polymer.html">
 
-<link rel="import" href="ha-action-dialog.html">
+<link rel="import" href="ha-dialog.html">
 <link rel="import" href="../cards/state-card-content.html">
 <link rel="import" href="../components/state-timeline.html">
 <link rel="import" href="../more-infos/more-info-content.html">
 
 <polymer-element name="more-info-dialog">
 <template>
-  <ha-action-dialog id="dialog">
-    <style>
-    .title-card {
-      margin-bottom: 24px;
-    }
-    </style>
-
+  <ha-dialog id="dialog">
     <div>
-      <state-card-content stateObj="{{stateObj}}" class='title-card'>
+      <state-card-content stateObj="{{stateObj}}" style='margin-bottom: 24px;'>
       </state-card-content>
       <state-timeline stateHistory="{{stateHistory}}"></state-timeline>
       <more-info-content stateObj="{{stateObj}}"></more-info-content>
     </div>
-  </ha-action-dialog>
-
+  </ha-dialog>
 </template>
 <script>
-Polymer({
-  stateObj: {},
+var storeListenerMixIn = window.hass.storeListenerMixIn;
+var stateStore = window.hass.stateStore;
+var stateHistoryStore = window.hass.stateHistoryStore;
+var stateHistoryActions = window.hass.stateHistoryActions;
+
+Polymer(Polymer.mixin({
+  entityId: false,
+  stateObj: null,
   stateHistory: null,
+  hasHistoryComponent: false,
 
   observe: {
     'stateObj.attributes': 'reposition'
   },
 
-  ready: function() {
-    this.stateHistoryStoreChanged = this.stateHistoryStoreChanged.bind(this);
-
-    window.hass.stateHistoryStore.addChangeListener(this.stateHistoryStoreChanged);
+  attached: function() {
+    this.listenToStores(true);
   },
 
   detached: function() {
-    window.hass.stateHistoryStore.removeChangeListener(this.stateHistoryStoreChanged);
+    this.stopListeningToStores();
+  },
+
+  componentStoreChanged: function(componentStore) {
+    this.hasHistoryComponent = componentStore.isLoaded('history');
+  },
+
+  stateStoreChanged: function() {
+    var newState = this.entityId ? stateStore.get(this.entityId) : null;
+
+    if (newState !== this.stateObj) {
+      this.stateObj = newState;
+    }
   },
 
   stateHistoryStoreChanged: function() {
-    if (this.stateObj.entityId) {
-      this.stateHistory = window.hass.stateHistoryStore.get(this.stateObj.entityId);
+    var newHistory;
+
+    if (this.hasHistoryComponent && this.entityId) {
+      newHistory = stateHistoryStore.get(this.entityId);
     } else {
-      this.stateHistory = null;
+      newHistory = null;
+    }
+
+    if (newHistory !== this.stateHistory) {
+      this.stateHistory = newHistory;
     }
   },
 
-  stateObjChanged: function() {
-    if (this.stateObj.entityId &&
-        window.hass.stateHistoryStore.isStale(this.stateObj.entityId)) {
-      window.hass.stateHistoryActions.fetch(this.stateObj.entityId);
-    }
+  changeEntityId: function(entityId) {
+    this.entityId = entityId;
 
+    this.stateStoreChanged();
     this.stateHistoryStoreChanged();
+
+    if (this.hasHistoryComponent && stateHistoryStore.isStale(entityId)) {
+      stateHistoryActions.fetch(entityId);
+    }
   },
 
   /**
@@ -72,13 +90,13 @@ Polymer({
     }
   },
 
-  show: function(stateObj) {
-    this.stateObj = stateObj;
+  show: function(entityId) {
+    this.changeEntityId(entityId);
+
     this.job('showDialogAfterRender', function() {
       this.$.dialog.toggle();
     }.bind(this));
   },
-
-});
+}, storeListenerMixIn));
 </script>
 </polymer-element>
